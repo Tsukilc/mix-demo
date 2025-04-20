@@ -20,7 +20,23 @@ dubbo:
     qos-enable: false
     check-serializable: false
   registry:
-    address: nacos://${nacos.address:127.0.0.1}:8848?username=nacos&password=nacos
+    address: nacos://${nacos.address:10.21.32.14}:8848?username=nacos&password=nacos
   protocol:
     port: 20885
     name: tri
+
+# 日志配置
+logging:
+  file:
+    # 日志生成的目录
+    path: ./log
+    # 日志文件名称
+    log-name: ${dubbo.application.name}
+    # 日志文件保留天数
+    days: 3
+  level:
+    ROOT: info
+    # com.xhs 包名称  
+    com.xhs: info
+  consumer:
+    check: false
