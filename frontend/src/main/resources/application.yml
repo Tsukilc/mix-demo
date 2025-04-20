@@ -39,19 +39,5 @@ dubbo:
   protocol:
     port: 20889
     name: tri
-
-# 日志配置
-logging:
-  file:
-    # 日志生成的目录
-    path: ./log
-    # 日志文件名称
-    log-name: ${dubbo.application.name}
-    # 日志文件保留天数
-    days: 3
-  level:
-    ROOT: info
-    # com.xhs 包名称  
-    com.xhs: info
   consumer:
     check: false
