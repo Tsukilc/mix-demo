@@ -23,6 +23,10 @@ import org.apache.dubbo.shop.common.dto.response.ListProductsResponse;
 import org.apache.dubbo.shop.common.dto.response.SearchProductsResponse;
 import org.apache.dubbo.shop.common.pojo.Empty;
 import org.apache.dubbo.shop.common.pojo.Product;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
@@ -30,15 +34,18 @@ import java.util.concurrent.CompletableFuture;
 /**
  * 商品目录服务
  */
+@RequestMapping("/api")
 public interface ProductCatalogService {
     
     /**
      * 获取商品列表
      */
+    @GetMapping("/products")
     ListProductsResponse listProducts(Empty request);
     
     /**
      * 获取商品
      */
-    Product getProduct(GetProductRequest request);
+    @GetMapping("/products/{id}")
+    Product getProduct(@PathVariable("id") String id);
 }

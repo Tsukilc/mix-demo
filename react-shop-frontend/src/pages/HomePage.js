@@ -1,156 +1,239 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Row, Col, Carousel, Card, Typography, Button, Spin } from 'antd';
-import { RightOutlined } from '@ant-design/icons';
+import React, { useEffect, useState } from 'react';
+import { Row, Col, Typography, Carousel, Card, Button, Spin, Empty, message } from 'antd';
+import { Link } from 'react-router-dom';
+import { ArrowRightOutlined } from '@ant-design/icons';
 import ProductCard from '../components/ProductCard';
 import { fetchProducts } from '../api/productApi';
+import { safelyParseResponse, formatApiError } from '../utils/apiUtils';
 
 const { Title } = Typography;
 
 const HomePage = () => {
-  const navigate = useNavigate();
   const [featuredProducts, setFeaturedProducts] = useState([]);
+  const [newArrivals, setNewArrivals] = useState([]);
+  const [bestSellers, setBestSellers] = useState([]);
   const [loading, setLoading] = useState(true);
-  
+
+  // 格式化价格展示
+  const formatPrice = (priceUsd) => {
+    if (!priceUsd) return '¥0.00';
+    const { units, nanos } = priceUsd;
+    const price = units + nanos / 1000000000;
+    return `¥${price.toFixed(2)}`;
+  };
+
   useEffect(() => {
     const loadProducts = async () => {
+      setLoading(true);
       try {
-        const products = await fetchProducts();
-        // 这里模拟获取精选产品，实际应该由后端提供专门的API
-        setFeaturedProducts(products.slice(0, 8));
-        setLoading(false);
+        const response = await fetchProducts();
+        console.log('产品原始响应:', response);
+        
+        // 使用安全解析函数处理响应
+        const products = safelyParseResponse(response, []);
+        
+        // 尝试从响应中获取产品列表
+        let productData = [];
+        if (Array.isArray(products)) {
+          productData = products;
+        } else if (products && products.products && Array.isArray(products.products)) {
+          productData = products.products;
+        }
+        
+        console.log('处理后的产品数据:', productData);
+        
+        // 添加格式化的价格
+        const processedProducts = productData.map(product => ({
+          ...product,
+          formattedPrice: formatPrice(product.priceUsd)
+        }));
+        
+        // 按照不同条件筛选产品
+        if (processedProducts.length > 0) {
+          // 特色商品 - 随机选择
+          const shuffled = [...processedProducts].sort(() => 0.5 - Math.random());
+          setFeaturedProducts(shuffled.slice(0, 4));
+          
+          // 新品 - 按创建时间排序
+          const sorted = [...processedProducts].sort((a, b) => 
+            new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
+          );
+          setNewArrivals(sorted.slice(0, 4));
+          
+          // 畅销品 - 按销量排序
+          const popular = [...processedProducts].sort((a, b) => 
+            (b.sales || 0) - (a.sales || 0)
+          );
+          setBestSellers(popular.slice(0, 4));
+        }
       } catch (error) {
-        console.error('加载产品失败', error);
+        console.error('加载产品失败:', error);
+        const errorMessage = formatApiError(error);
+        message.error(`无法加载产品: ${errorMessage}`);
+      } finally {
         setLoading(false);
-        setFeaturedProducts([]);
       }
     };
-    
+
     loadProducts();
   }, []);
-  
+
+  // 轮播图配置
+  const carouselSettings = {
+    autoplay: true,
+    dots: true,
+  };
+
+  const defaultImage = 'https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-1inch-white?wid=5120&hei=2880&fmt=webp&qlt=70&.v=UXp1U3VDY3IyR1hNdHZwdFdOLzg1V0tFK1lhSCtYSGRqMUdhR284NTN4OWhabGVFdVhnaExpMWhzbVh0SzhIT09MekhWSGZtV1pvV240QzNuTk80VXhseHVZcEw1SmhqcElaQkJMTm9FMytjRGRjd0V1bkY3a0xXbUtlY3VlTmc&traceId=1'
+
   // 轮播图内容
-  const carouselItems = [
+  const banners = [
     {
-      id: 1,
-      title: '夏季大促',
+      image: defaultImage,
+      title: '夏季大促销',
       description: '全场商品低至5折',
-      imageUrl: 'https://via.placeholder.com/1200x400?text=夏季大促',
+      link: '/products?category=summer',
     },
     {
-      id: 2,
+      image: defaultImage,
       title: '新品上市',
-      description: '限时抢购',
-      imageUrl: 'https://via.placeholder.com/1200x400?text=新品上市',
+      description: '发现最新潮流单品',
+      link: '/products?category=new',
     },
     {
-      id: 3,
-      title: '会员专享',
-      description: '会员专享优惠',
-      imageUrl: 'https://via.placeholder.com/1200x400?text=会员专享',
+      image: defaultImage,
+      title: '限时抢购',
+      description: '每天10点开始',
+      link: '/products?category=flash',
     },
   ];
 
   return (
-    <div className="homepage">
-      <Carousel autoplay>
-        {carouselItems.map(item => (
-          <div key={item.id}>
-            <div 
-              style={{ 
-                height: '400px', 
-                background: `url(${item.imageUrl}) center center no-repeat`,
+    <div className="home-page">
+      {/* 轮播图 */}
+      <Carousel {...carouselSettings} className="home-carousel">
+        {banners.map((banner, index) => (
+          <div key={index}>
+            <div
+              className="carousel-item"
+              style={{
+                backgroundImage: `url(${banner.image})`,
                 backgroundSize: 'cover',
-                display: 'flex',
-                alignItems: 'center'
+                backgroundPosition: 'center',
+                height: '400px',
+                position: 'relative',
               }}
             >
-              <div style={{ maxWidth: '50%', padding: '0 50px' }}>
-                <Title level={2} style={{ color: '#fff', textShadow: '1px 1px 3px rgba(0,0,0,0.7)' }}>
-                  {item.title}
-                </Title>
-                <Title level={4} style={{ color: '#fff', textShadow: '1px 1px 3px rgba(0,0,0,0.7)' }}>
-                  {item.description}
-                </Title>
-                <Button type="primary" size="large" onClick={() => navigate('/products')}>
-                  立即查看
-                </Button>
+              <div
+                className="carousel-content"
+                style={{
+                  position: 'absolute',
+                  bottom: '50px',
+                  left: '50px',
+                  backgroundColor: 'rgba(255, 255, 255, 0.8)',
+                  padding: '20px',
+                  borderRadius: '5px',
+                  maxWidth: '400px',
+                }}
+              >
+                <Title level={2}>{banner.title}</Title>
+                <p>{banner.description}</p>
+                <Link to={banner.link}>
+                  <Button type="primary" size="large">
+                    查看详情
+                  </Button>
+                </Link>
               </div>
             </div>
           </div>
         ))}
       </Carousel>
 
-      <div style={{ margin: '40px 0' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <Title level={3}>精选商品</Title>
-          <Button 
-            type="link" 
-            onClick={() => navigate('/products')}
-            icon={<RightOutlined />}
-          >
-            查看全部
-          </Button>
+      {/* 特色商品 */}
+      <div className="section" style={{ margin: '40px 0' }}>
+        <div className="section-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={3}>特色商品</Title>
+          <Link to="/products">
+            <Button type="link">
+              查看全部 <ArrowRightOutlined />
+            </Button>
+          </Link>
         </div>
-        
+
         {loading ? (
           <div style={{ textAlign: 'center', padding: '40px 0' }}>
             <Spin size="large" />
           </div>
-        ) : (
+        ) : featuredProducts.length > 0 ? (
           <Row gutter={[16, 16]}>
-            {featuredProducts.length > 0 ? (
-              featuredProducts.map(product => (
-                <Col xs={24} sm={12} md={8} lg={6} key={product.id}>
-                  <ProductCard product={product} />
-                </Col>
-              ))
-            ) : (
-              <Col span={24}>
-                <Card style={{ textAlign: 'center' }}>
-                  暂无商品
-                </Card>
+            {featuredProducts.map(product => (
+              <Col xs={24} sm={12} md={8} lg={6} key={product.id}>
+                <ProductCard product={product} />
               </Col>
-            )}
+            ))}
           </Row>
+        ) : (
+          <Empty description="暂无特色商品" />
         )}
       </div>
-      
-      {/* 促销专区 */}
-      <div style={{ margin: '40px 0' }}>
-        <Title level={3}>促销专区</Title>
-        <Row gutter={[16, 16]}>
-          <Col xs={24} md={8}>
-            <Card
-              hoverable
-              cover={<img alt="促销1" src="https://via.placeholder.com/400x200?text=限时特惠" />}
-              onClick={() => navigate('/products?category=sale')}
-            >
-              <Card.Meta title="限时特惠" description="限时特价商品，错过再等一年" />
-            </Card>
-          </Col>
-          <Col xs={24} md={8}>
-            <Card
-              hoverable
-              cover={<img alt="促销2" src="https://via.placeholder.com/400x200?text=新品上市" />}
-              onClick={() => navigate('/products?category=new')}
-            >
-              <Card.Meta title="新品上市" description="最新上架商品，潮流尖货" />
-            </Card>
-          </Col>
-          <Col xs={24} md={8}>
-            <Card
-              hoverable
-              cover={<img alt="促销3" src="https://via.placeholder.com/400x200?text=热卖商品" />}
-              onClick={() => navigate('/products?category=hot')}
-            >
-              <Card.Meta title="热卖商品" description="大家都在买，好评如潮" />
-            </Card>
-          </Col>
-        </Row>
+
+      {/* 新品上市 */}
+      <div className="section" style={{ margin: '40px 0' }}>
+        <div className="section-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={3}>新品上市</Title>
+          <Link to="/products?sortBy=newest">
+            <Button type="link">
+              查看全部 <ArrowRightOutlined />
+            </Button>
+          </Link>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Spin size="large" />
+          </div>
+        ) : newArrivals.length > 0 ? (
+          <Row gutter={[16, 16]}>
+            {newArrivals.map(product => (
+              <Col xs={24} sm={12} md={8} lg={6} key={product.id}>
+                <ProductCard product={product} />
+              </Col>
+            ))}
+          </Row>
+        ) : (
+          <Empty description="暂无新品" />
+        )}
+      </div>
+
+      {/* 畅销商品 */}
+      <div className="section" style={{ margin: '40px 0' }}>
+        <div className="section-header" style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Title level={3}>畅销商品</Title>
+          <Link to="/products?sortBy=popular">
+            <Button type="link">
+              查看全部 <ArrowRightOutlined />
+            </Button>
+          </Link>
+        </div>
+
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px 0' }}>
+            <Spin size="large" />
+          </div>
+        ) : bestSellers.length > 0 ? (
+          <Row gutter={[16, 16]}>
+            {bestSellers.map(product => (
+              <Col xs={24} sm={12} md={8} lg={6} key={product.id}>
+                <ProductCard product={product} />
+              </Col>
+            ))}
+          </Row>
+        ) : (
+          <Empty description="暂无畅销商品" />
+        )}
       </div>
     </div>
   );
 };
 
-export default HomePage; 
+export default HomePage;

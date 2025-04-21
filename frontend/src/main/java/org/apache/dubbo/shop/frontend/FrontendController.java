@@ -100,7 +100,7 @@ public class FrontendController {
 
         for (CartItem item : items) {
             totalQuantity += item.getQuantity();
-            Product product = productCatalogService.getProduct(new GetProductRequest(item.getProductId()));
+            Product product = productCatalogService.getProduct(item.getProductId());
             productIds.add(item.getProductId());
             if (product != null) {
                 productQuantityMap.put(product, item.getQuantity());
@@ -114,7 +114,7 @@ public class FrontendController {
         ListRecommendationsResponse recommendations = recommendationService.listRecommendations(new ListRecommendationsRequest("1", productIds));
         List<Product> products = new ArrayList<>();
         for (String productId : recommendations.getProductIds()) {
-            products.add(productCatalogService.getProduct(new GetProductRequest(productId)));
+            products.add(productCatalogService.getProduct(productId));
         }
         model.addAttribute("recommendations", products);
         model.addAttribute("cart_size", totalQuantity);
@@ -153,7 +153,7 @@ public class FrontendController {
         ListRecommendationsResponse recommendations = recommendationService.listRecommendations(new ListRecommendationsRequest("1", new ArrayList<>()));
         List<Product> products = new ArrayList<>();
         for(String productId : recommendations.getProductIds()){
-            products.add(productCatalogService.getProduct(new GetProductRequest(productId)));
+            products.add(productCatalogService.getProduct(productId));
         }
 
         model.addAttribute("order",placeOrderResponse.getOrder());
@@ -166,7 +166,7 @@ public class FrontendController {
 
     @GetMapping("/product/{id}")
     public String product(@PathVariable String id, Model model) throws ExecutionException, InterruptedException {
-        Product product = productCatalogService.getProduct(new GetProductRequest(id));
+        Product product = productCatalogService.getProduct(id);
 
         model.addAttribute("is_cymbal_brand", false);
         model.addAttribute("show_currency", false);
@@ -175,7 +175,7 @@ public class FrontendController {
         ListRecommendationsResponse recommendations = recommendationService.listRecommendations(new ListRecommendationsRequest("1", List.of(product.getId())));
         List<Product> products = new ArrayList<>();
         for(String productId : recommendations.getProductIds()){
-            products.add(productCatalogService.getProduct(new GetProductRequest(productId)));
+            products.add(productCatalogService.getProduct(productId));
         }
 
         AdRequest adRequest = new AdRequest(List.of(id));

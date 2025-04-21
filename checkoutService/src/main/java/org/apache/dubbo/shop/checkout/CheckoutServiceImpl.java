@@ -149,10 +149,7 @@ public class CheckoutServiceImpl implements CheckoutService {
     public List<OrderItem> prepOrderItems(List<CartItem> items, String userCurrency) {
         List<OrderItem> out = new ArrayList<>();
         for (CartItem item : items) {
-            GetProductRequest request = new GetProductRequest();
-            request.setId(item.getProductId());
-
-            Product product = productCatalogService.getProduct(request);
+            Product product = productCatalogService.getProduct(item.getProductId());
             Money price = covertCurrency(product.getPriceUsd(), userCurrency);
 
             OrderItem orderItem = new OrderItem();

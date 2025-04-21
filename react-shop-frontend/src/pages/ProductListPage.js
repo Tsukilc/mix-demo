@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
-import { Row, Col, Card, Typography, Input, Select, Pagination, Empty, Spin, Breadcrumb } from 'antd';
+import { Row, Col, Card, Typography, Input, Select, Pagination, Empty, Spin, Breadcrumb, message } from 'antd';
 import { HomeOutlined } from '@ant-design/icons';
 import ProductCard from '../components/ProductCard';
 import { fetchProducts, searchProducts } from '../api/productApi';
+import { safelyParseResponse } from '../utils/apiUtils';
 
 const { Title } = Typography;
 const { Search } = Input;
@@ -27,36 +28,69 @@ const ProductListPage = () => {
   const searchQuery = searchParams.get('search') || '';
   const categoryParam = searchParams.get('category') || '';
   
+  // 格式化价格展示
+  const formatPrice = (priceUsd) => {
+    if (!priceUsd) return '¥0.00';
+    const { units, nanos } = priceUsd;
+    const price = units + nanos / 1000000000;
+    return `¥${price.toFixed(2)}`;
+  };
+  
   // 加载产品数据
   useEffect(() => {
     const loadProducts = async () => {
       setLoading(true);
       try {
-        let productData;
+        let productData = [];
         
         if (searchQuery) {
           // 搜索产品
-          productData = await searchProducts(searchQuery);
+          const searchResponse = await searchProducts(searchQuery);
+          console.log('搜索原始响应:', searchResponse);
+          
+          // 尝试从搜索响应中获取产品列表
+          if (searchResponse && typeof searchResponse === 'object') {
+            if (Array.isArray(searchResponse)) {
+              productData = searchResponse;
+            } else if (searchResponse.products && Array.isArray(searchResponse.products)) {
+              productData = searchResponse.products;
+            }
+          }
+          
         } else {
           // 获取所有产品
-          productData = await fetchProducts();
+          const response = await fetchProducts();
+          console.log('产品列表原始响应:', response);
+          
+          // 尝试从响应中获取产品列表
+          if (response && typeof response === 'object') {
+            if (Array.isArray(response)) {
+              productData = response;
+            } else if (response.products && Array.isArray(response.products)) {
+              productData = response.products;
+            }
+          }
+          
           // 这里可以根据分类或其他条件进行筛选
-          if (categoryParam) {
+          if (categoryParam && productData.length > 0) {
             productData = productData.filter(p => p.category === categoryParam);
           }
         }
         
+        console.log('处理后的产品数据:', productData);
+        
         // 这里模拟分页，实际应该由后端分页
         setProducts(productData);
-        setPagination({
-          ...pagination,
+        setPagination(prev => ({
+          ...prev,
           total: productData.length,
-        });
-        setLoading(false);
+        }));
       } catch (error) {
-        console.error('加载产品失败', error);
-        setLoading(false);
+        console.error('加载产品失败:', error);
+        message.error('无法加载产品数据，请稍后再试');
         setProducts([]);
+      } finally {
+        setLoading(false);
       }
     };
     
@@ -68,13 +102,21 @@ const ProductListPage = () => {
     const sortedProducts = [...products];
     switch (sortBy) {
       case 'priceAsc':
-        return sortedProducts.sort((a, b) => a.price - b.price);
+        return sortedProducts.sort((a, b) => {
+          const priceA = a.priceUsd ? (a.priceUsd.units + a.priceUsd.nanos / 1000000000) : 0;
+          const priceB = b.priceUsd ? (b.priceUsd.units + b.priceUsd.nanos / 1000000000) : 0;
+          return priceA - priceB;
+        });
       case 'priceDesc':
-        return sortedProducts.sort((a, b) => b.price - a.price);
+        return sortedProducts.sort((a, b) => {
+          const priceA = a.priceUsd ? (a.priceUsd.units + a.priceUsd.nanos / 1000000000) : 0;
+          const priceB = b.priceUsd ? (b.priceUsd.units + b.priceUsd.nanos / 1000000000) : 0;
+          return priceB - priceA;
+        });
       case 'newest':
-        return sortedProducts.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+        return sortedProducts.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       case 'popular':
-        return sortedProducts.sort((a, b) => b.sales - a.sales);
+        return sortedProducts.sort((a, b) => (b.sales || 0) - (a.sales || 0));
       default:
         return sortedProducts; // 默认推荐排序
     }
@@ -112,6 +154,12 @@ const ProductListPage = () => {
     const startIndex = (current - 1) * pageSize;
     return sortedProducts.slice(startIndex, startIndex + pageSize);
   };
+  
+  // 处理产品数据，添加格式化的价格
+  const processedProducts = getCurrentPageProducts().map(product => ({
+    ...product,
+    formattedPrice: formatPrice(product.priceUsd)
+  }));
   
   return (
     <div className="product-list-page">
@@ -168,7 +216,7 @@ const ProductListPage = () => {
       ) : products.length > 0 ? (
         <>
           <Row gutter={[16, 16]}>
-            {getCurrentPageProducts().map(product => (
+            {processedProducts.map(product => (
               <Col xs={24} sm={12} md={8} lg={6} key={product.id}>
                 <ProductCard product={product} />
               </Col>

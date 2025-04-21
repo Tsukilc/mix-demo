@@ -22,6 +22,7 @@ import {
 } from '@ant-design/icons';
 import { fetchProductById } from '../api/productApi';
 import { addItemToCart } from '../api/cartApi';
+import { safelyParseResponse } from '../utils/apiUtils';
 
 const { Title, Text } = Typography;
 const { TabPane } = Tabs;
@@ -34,15 +35,32 @@ const ProductDetailPage = () => {
   const [quantity, setQuantity] = useState(1);
   const userId = '123'; // 模拟用户ID，实际应该从认证系统获取
   
+  // 格式化价格展示
+  const formatPrice = (priceUsd) => {
+    if (!priceUsd) return '¥0.00';
+    const { units, nanos } = priceUsd;
+    const price = units + nanos / 1000000000;
+    return `¥${price.toFixed(2)}`;
+  };
+  
   useEffect(() => {
     const loadProduct = async () => {
       setLoading(true);
       try {
-        const productData = await fetchProductById(id);
-        setProduct(productData);
+        const response = await fetchProductById(id);
+        console.log('商品详情原始响应:', response);
+        
+        if (response && typeof response === 'object') {
+          setProduct(response);
+        } else {
+          console.warn('产品数据格式不正确:', response);
+          message.error('无法加载产品详情');
+          setProduct(null);
+        }
       } catch (error) {
-        console.error('加载产品详情失败', error);
+        console.error('加载产品详情失败:', error);
         message.error('加载产品详情失败');
+        setProduct(null);
       } finally {
         setLoading(false);
       }
@@ -55,16 +73,22 @@ const ProductDetailPage = () => {
     if (!product) return;
     
     try {
-      await addItemToCart(userId, {
+      // 获取实际价格
+      const price = product.priceUsd ? 
+        (product.priceUsd.units + product.priceUsd.nanos / 1000000000) : 0;
+      
+      const cartItem = {
         productId: product.id,
         name: product.name,
-        price: product.price,
+        price: price,
         quantity: quantity,
-        imageUrl: product.imageUrl
-      });
+        imageUrl: product.picture || 'https://via.placeholder.com/300'
+      };
+      
+      await addItemToCart(userId, cartItem);
       message.success('已添加到购物车');
     } catch (error) {
-      console.error('添加到购物车失败', error);
+      console.error('添加到购物车失败:', error);
       message.error('添加到购物车失败');
     }
   };
@@ -101,6 +125,11 @@ const ProductDetailPage = () => {
     );
   }
   
+  // 获取价格显示
+  const displayPrice = formatPrice(product.priceUsd);
+  // 获取图片URL
+  const imageUrl = product.picture || 'https://store.storeimages.cdn-apple.com/1/as-images.apple.com/is/iphone-16-finish-select-202409-6-1inch-white?wid=5120&hei=2880&fmt=webp&qlt=70&.v=UXp1U3VDY3IyR1hNdHZwdFdOLzg1V0tFK1lhSCtYSGRqMUdhR284NTN4OWhabGVFdVhnaExpMWhzbVh0SzhIT09MekhWSGZtV1pvV240QzNuTk80VXhseHVZcEw1SmhqcElaQkJMTm9FMytjRGRjd0V1bkY3a0xXbUtlY3VlTmc&traceId=1';
+  
   return (
     <div className="product-detail-page">
       <Breadcrumb style={{ marginBottom: 16 }}>
@@ -119,9 +148,10 @@ const ProductDetailPage = () => {
         <Row gutter={[32, 16]}>
           <Col xs={24} md={12}>
             <Image 
-              src={product.imageUrl || 'https://via.placeholder.com/500'}
+              src={imageUrl}
               alt={product.name}
               style={{ width: '100%', maxHeight: '500px', objectFit: 'contain' }}
+              fallback="https://via.placeholder.com/500?text=图片加载失败"
             />
             <Row gutter={8} style={{ marginTop: 8 }}>
               {[1, 2, 3, 4].map((i) => (
@@ -143,7 +173,7 @@ const ProductDetailPage = () => {
               <Text type="secondary">价格:</Text>
               <br />
               <Text style={{ fontSize: 24, color: '#ff4d4f', fontWeight: 'bold' }}>
-                ¥{product.price}
+                {displayPrice}
               </Text>
               {product.originalPrice && (
                 <Text delete style={{ marginLeft: 8, color: '#999' }}>
@@ -161,7 +191,7 @@ const ProductDetailPage = () => {
                 style={{ width: 120 }}
               />
               <Text type="secondary" style={{ marginLeft: 16 }}>
-                库存 {product.stock || 100} 件
+                库存 {product.availableQuantity || 100} 件
               </Text>
             </div>
             

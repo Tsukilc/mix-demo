@@ -21,9 +21,17 @@ const MainHeader = () => {
   const loadCart = async () => {
     try {
       const cartData = await fetchCart(userId);
-      setCart(cartData);
+      
+      if (cartData && typeof cartData === 'object') {
+        // 确保cart.items是一个数组
+        const items = Array.isArray(cartData.items) ? cartData.items : [];
+        setCart({ ...cartData, items });
+      } else {
+        console.warn('购物车数据格式不正确:', cartData);
+        setCart({ items: [] });
+      }
     } catch (error) {
-      console.error('加载购物车失败', error);
+      console.error('加载购物车失败:', error);
       // 显示空购物车
       setCart({ items: [] });
     }

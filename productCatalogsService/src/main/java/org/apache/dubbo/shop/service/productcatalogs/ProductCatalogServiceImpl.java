@@ -51,9 +51,9 @@ public class ProductCatalogServiceImpl implements ProductCatalogService, Seriali
     }
 
     @Override
-    public Product getProduct(GetProductRequest request) {
+    public Product getProduct(String id) {
         return products.stream()
-                .filter(product -> product.getId().equals(request.getId()))
+                .filter(product -> product.getId().equals(id))
                 .findFirst()
                 .orElse(null);
     }

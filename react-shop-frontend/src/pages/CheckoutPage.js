@@ -49,21 +49,37 @@ const CheckoutPage = () => {
       setLoading(true);
       try {
         // 并行加载购物车和地址信息
-        const [cartData, addressesData] = await Promise.all([
+        const [cartResponse, addressesResponse] = await Promise.all([
           fetchCart(userId),
           getShippingAddresses(userId)
         ]);
         
-        setCart(cartData);
-        setAddresses(addressesData || []);
+        // 处理购物车数据
+        if (cartResponse && typeof cartResponse === 'object') {
+          const items = Array.isArray(cartResponse.items) ? cartResponse.items : [];
+          setCart({ ...cartResponse, items });
+        } else {
+          console.warn('购物车数据格式不正确:', cartResponse);
+          setCart({ items: [] });
+        }
         
-        // 如果有地址，选择第一个作为默认
-        if (addressesData && addressesData.length > 0) {
-          setSelectedAddress(addressesData[0].id);
+        // 处理地址数据
+        if (Array.isArray(addressesResponse)) {
+          setAddresses(addressesResponse);
+          
+          // 如果有地址，选择第一个作为默认
+          if (addressesResponse.length > 0) {
+            setSelectedAddress(addressesResponse[0].id);
+          }
+        } else {
+          console.warn('地址数据格式不正确:', addressesResponse);
+          setAddresses([]);
         }
       } catch (error) {
-        console.error('加载结账数据失败', error);
+        console.error('加载结账数据失败:', error);
         message.error('加载结账数据失败');
+        setCart({ items: [] });
+        setAddresses([]);
       } finally {
         setLoading(false);
       }
