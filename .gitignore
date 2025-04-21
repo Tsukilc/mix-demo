@@ -66,3 +66,5 @@ test/jobs
 test/nacos-mysql
 version-matrix.txt
 target-jacoco/
+
+node_modules/
